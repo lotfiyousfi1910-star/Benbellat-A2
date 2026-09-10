@@ -32,9 +32,39 @@
     thead th { position: sticky; top: 0; z-index: 10; }
     .table-scroll { max-height: 65vh; overflow: auto; }
     .card-shadow { box-shadow: 0 4px 20px -2px rgba(0,0,0,0.08); }
-    .admin-only { display: none; }
-    body.is-admin .admin-only { display: inline-flex; }
+    .edit-input { width: 64px; text-align: center; border: 1px solid #93c5fd; border-radius: 6px; padding: 2px 4px; background: #eff6ff; font-size: 12px; }
+    .admin-only { display: none !important; }
+    body.is-admin .admin-only { display: inline-flex !important; }
+    body.is-admin .admin-block { display: block !important; }
+    .admin-block { display: none !important; }
     #loading-overlay { transition: opacity 0.3s; }
+    .tab-card {
+      background: #f1f5f9;
+      color: #475569;
+      border: 2px solid transparent;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .tab-card:hover {
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 8px 20px rgba(37,99,235,0.2);
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .tab-card.active {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      border-color: #1e40af;
+      box-shadow: 0 6px 18px rgba(37,99,235,0.45);
+      transform: translateY(-2px);
+    }
+    .tab-card.active .tab-icon {
+      animation: bounce-soft 1.2s ease infinite;
+    }
+    @keyframes bounce-soft {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -42,7 +72,7 @@
   <div id="loading-overlay" class="fixed inset-0 bg-white/80 z-50 flex items-center justify-center">
     <div class="text-center">
       <div class="inline-block w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-      <p class="text-slate-600 font-semibold">جاري تحميل البيانات من Google Sheets...</p>
+      <p class="text-slate-600 font-semibold">جاري تحميل البيانات...</p>
     </div>
   </div>
 
@@ -65,8 +95,7 @@
           <span class="font-bold text-lg mr-1" id="monthly-fee-display">1,000</span> دج
         </div>
         <button onclick="refreshFromSheets()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          تحديث
+          🔄 تحديث
         </button>
         <button id="btn-login" onclick="openLoginModal()" class="bg-white text-primary-700 hover:bg-primary-50 px-4 py-2 rounded-lg font-semibold text-sm transition">
           دخول المسؤول
@@ -79,24 +108,32 @@
   </header>
 
   <div id="status-bar" class="bg-slate-100 border-b border-slate-200 text-center py-1.5 text-xs text-slate-500">
-    <span id="status-text">جاري الاتصال بـ Google Sheets...</span>
+    <span id="status-text">جاري الاتصال...</span>
   </div>
   <div class="bg-primary-900 text-primary-100 text-center py-1.5 text-sm font-semibold tracking-wide">
     🕐 <span id="live-clock">—</span>
   </div>
 
   <div id="admin-bar" class="admin-only bg-amber-500 text-white text-center py-2 text-sm font-semibold flex flex-wrap items-center justify-center gap-2 px-2">
-    <span>🔓 وضع المسؤول</span>
-    <span class="text-amber-100 text-xs">| عدّل في Google Sheets ثم اضغط «تحديث»</span>
-    <a id="sheet-link" href="https://docs.google.com/spreadsheets/d/1mR8pDaEWsI1W3HETZvHLbt2veqcoDQum/edit" target="_blank" class="bg-white text-amber-700 px-3 py-1 rounded font-bold hover:bg-amber-50 text-xs">📊 فتح Google Sheets</a>
+    <span>🔓 وضع المسؤول — التعديلات تُحفظ في Google Sheets</span>
+    <a href="https://docs.google.com/spreadsheets/d/1mR8pDaEWsI1W3HETZvHLbt2veqcoDQum/edit" target="_blank" class="bg-white text-amber-700 px-3 py-1 rounded font-bold hover:bg-amber-50 text-xs">📊 فتح Sheets</a>
   </div>
 
   <nav class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
     <div class="max-w-7xl mx-auto px-4">
-      <div class="flex gap-1 overflow-x-auto py-2">
-        <button onclick="showTab('summary')" id="tab-summary" class="tab-btn active px-5 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition">📊 الملخص العام</button>
-        <button onclick="showTab('subs')" id="tab-subs" class="tab-btn px-5 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition hover:bg-slate-100">💰 الاشتراكات</button>
-        <button onclick="showTab('expenses')" id="tab-expenses" class="tab-btn px-5 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition hover:bg-slate-100">🧾 المصاريف</button>
+      <div class="flex gap-3 overflow-x-auto py-3 justify-center sm:justify-start">
+        <button onclick="showTab('summary')" id="tab-summary" class="tab-btn active tab-card flex flex-col items-center gap-1 px-6 py-3 rounded-2xl font-bold text-base whitespace-nowrap transition-all duration-300 min-w-[110px]">
+          <span class="tab-icon text-3xl leading-none">📊</span>
+          <span>الملخص</span>
+        </button>
+        <button onclick="showTab('subs')" id="tab-subs" class="tab-btn tab-card flex flex-col items-center gap-1 px-6 py-3 rounded-2xl font-bold text-base whitespace-nowrap transition-all duration-300 min-w-[110px]">
+          <span class="tab-icon text-3xl leading-none">💰</span>
+          <span>الاشتراكات</span>
+        </button>
+        <button onclick="showTab('expenses')" id="tab-expenses" class="tab-btn tab-card flex flex-col items-center gap-1 px-6 py-3 rounded-2xl font-bold text-base whitespace-nowrap transition-all duration-300 min-w-[110px]">
+          <span class="tab-icon text-3xl leading-none">🧾</span>
+          <span>المصاريف</span>
+        </button>
       </div>
     </div>
   </nav>
@@ -106,12 +143,16 @@
     <section id="panel-summary" class="tab-panel">
       <div class="mb-6">
         <h2 class="text-xl font-bold text-slate-700 mb-1">الملخص العام - عمارة A2</h2>
-        <p class="text-slate-500 text-sm">سنة 2026 · مصدر البيانات: Google Sheets</p>
+        <p class="text-slate-500 text-sm">مصدر البيانات: Google Sheets</p>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
-          <span class="text-slate-500 text-sm font-medium">الرصيد السابق (2025)</span>
+          <span class="text-slate-500 text-sm font-medium">الرصيد السابق</span>
           <p class="text-3xl font-bold text-slate-700 mt-2"><span id="prev-balance">0</span> <span class="text-base font-normal text-slate-400">دج</span></p>
+          <div class="admin-block mt-2">
+            <input type="number" id="edit-prev-balance" class="edit-input w-28" placeholder="0">
+            <button onclick="savePrevBalance()" class="mr-1 bg-primary-600 text-white text-xs px-2 py-1 rounded">حفظ</button>
+          </div>
         </div>
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
           <span class="text-slate-500 text-sm font-medium">مجموع الاشتراكات</span>
@@ -138,7 +179,7 @@
           <p class="text-sm text-slate-500 mt-1" id="paid-list">—</p>
         </div>
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
-          <h3 class="font-bold text-slate-700 mb-3">نسبة التحصيل الكلية</h3>
+          <h3 class="font-bold text-slate-700 mb-3">نسبة التحصيل</h3>
           <p class="text-4xl font-bold text-warning-600" id="collection-rate">0%</p>
           <p class="text-sm text-slate-500 mt-1" id="collection-detail">—</p>
         </div>
@@ -149,7 +190,7 @@
       <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 class="text-xl font-bold text-slate-700">جدول الاشتراكات</h2>
-          <p class="text-slate-500 text-sm">تتبع الدفع الشهري لكل شقة (2026)</p>
+          <p class="text-slate-500 text-sm">في وضع المسؤول: عدّل الخانة ثم اضغط Enter أو انقر خارجها للحفظ في Sheets</p>
         </div>
         <div class="flex gap-2 text-xs">
           <span class="inline-flex items-center gap-1 bg-success-100 text-success-700 px-3 py-1 rounded-full font-medium"><span class="w-2 h-2 bg-success-500 rounded-full"></span> مدفوع</span>
@@ -186,9 +227,14 @@
     </section>
 
     <section id="panel-expenses" class="tab-panel hidden">
-      <div class="mb-6">
-        <h2 class="text-xl font-bold text-slate-700">المصاريف</h2>
-        <p class="text-slate-500 text-sm">سجل المصاريف والفاتورات (من Google Sheets)</p>
+      <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-slate-700">المصاريف</h2>
+          <p class="text-slate-500 text-sm">من Google Sheets</p>
+        </div>
+        <button onclick="openAddExpense()" class="admin-only bg-success-600 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-success-700 items-center gap-2">
+          ➕ إضافة مصروف
+        </button>
       </div>
       <div class="bg-white rounded-2xl card-shadow border border-slate-100 overflow-hidden mb-6">
         <div class="overflow-x-auto">
@@ -197,9 +243,10 @@
               <tr>
                 <th class="px-4 py-3 text-right font-bold">التاريخ</th>
                 <th class="px-4 py-3 text-right font-bold">نوع الخدمة</th>
-                <th class="px-4 py-3 text-right font-bold">وصف المصروف</th>
-                <th class="px-4 py-3 text-center font-bold">المبلغ (دج)</th>
+                <th class="px-4 py-3 text-right font-bold">الوصف</th>
+                <th class="px-4 py-3 text-center font-bold">المبلغ</th>
                 <th class="px-4 py-3 text-center font-bold">الفاتورة</th>
+                <th class="px-4 py-3 text-center font-bold admin-only">حذف</th>
               </tr>
             </thead>
             <tbody id="expenses-body"></tbody>
@@ -207,7 +254,7 @@
               <tr class="bg-slate-100 font-bold">
                 <td colspan="3" class="px-4 py-3 text-left">المجموع</td>
                 <td class="px-4 py-3 text-center text-danger-600 text-lg"><span id="exp-total">0</span> دج</td>
-                <td></td>
+                <td colspan="2"></td>
               </tr>
             </tfoot>
           </table>
@@ -217,13 +264,13 @@
   </main>
 
   <footer class="bg-white border-t border-slate-200 mt-12 py-6 text-center text-slate-500 text-sm">
-    <p>نظام إدارة عمارة A2 · البيانات من Google Sheets</p>
+    <p>نظام إدارة عمارة A2 · Google Sheets</p>
   </footer>
 
+  <!-- Login modal -->
   <div id="login-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
       <h3 class="text-xl font-bold text-slate-800 mb-4 text-center">🔐 دخول المسؤول</h3>
-      <p class="text-sm text-slate-500 mb-4 text-center">للتعديل: افتح Google Sheets وعدّل هناك ثم اضغط «تحديث»</p>
       <input type="password" id="login-password" placeholder="كلمة المرور" class="w-full border border-slate-300 rounded-lg px-4 py-3 mb-4 text-center focus:outline-none focus:ring-2 focus:ring-primary-500" onkeydown="if(event.key==='Enter') tryLogin()">
       <p id="login-error" class="text-danger-500 text-sm text-center mb-3 hidden">كلمة المرور خاطئة</p>
       <div class="flex gap-3">
@@ -233,9 +280,44 @@
     </div>
   </div>
 
+  <!-- Add expense modal -->
+  <div id="expense-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <h3 class="text-xl font-bold text-slate-800 mb-4">إضافة مصروف</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">التاريخ</label>
+          <input type="date" id="exp-date" class="w-full border border-slate-300 rounded-lg px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">نوع الخدمة</label>
+          <select id="exp-type" class="w-full border border-slate-300 rounded-lg px-3 py-2">
+            <option>الكهرباء</option><option>الماء</option><option>الصيانة</option><option>التنظيف</option><option>الأمن</option><option>أخرى</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">الوصف</label>
+          <input type="text" id="exp-desc" class="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="وصف المصروف">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">المبلغ (دج)</label>
+          <input type="number" id="exp-amount" class="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="0">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">رابط الفاتورة</label>
+          <input type="url" id="exp-link" class="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="https://...">
+        </div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button onclick="addExpense()" class="flex-1 bg-success-600 text-white py-2.5 rounded-lg font-bold hover:bg-success-700">حفظ في Sheets</button>
+        <button onclick="closeExpenseModal()" class="flex-1 bg-slate-200 text-slate-700 py-2.5 rounded-lg font-bold hover:bg-slate-300">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ============================================================
-    // CONFIG — جاهز مع Sheet ID ديالك
+    // CONFIG
     // ============================================================
     const CONFIG = {
       SHEET_ID: "1mR8pDaEWsI1W3HETZvHLbt2veqcoDQum",
@@ -243,149 +325,128 @@
       SHEET_EXPENSES: "المصاريف",
       SHEET_SUMMARY: "الملخص",
       ADMIN_PASSWORD: "a2admin2026",
-      SHEET_EDIT_URL: "https://docs.google.com/spreadsheets/d/1mR8pDaEWsI1W3HETZvHLbt2veqcoDQum/edit"
+
+      // ⚠️ بعد ما تنشر Apps Script، حط الرابط هنا
+      // مثال: https://script.google.com/macros/s/AKfycbx...../exec
+      APPS_SCRIPT_URL: "REMPLACE_PAR_URL_APPS_SCRIPT",
+
+      // لازم يكون نفس SECRET لي في Code.gs
+      SECRET: "a2_secret_2026_change_me"
     };
 
-    let data = {
-      monthlyFee: 1000,
-      prevBalance: 0,
-      apartments: {},
-      expenses: []
-    };
+    let data = { monthlyFee: 1000, prevBalance: 0, apartments: {}, expenses: [] };
+    let isAdmin = false;
 
-    function sheetCsvUrl(sheetName) {
-      return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+    // ---------- CSV helpers ----------
+    function sheetCsvUrl(name) {
+      return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`;
     }
-
     function parseCsv(text) {
-      const result = [];
-      let row = [];
-      let current = '';
-      let inQuotes = false;
+      const result = []; let row = []; let current = ''; let inQuotes = false;
       for (let i = 0; i < text.length; i++) {
         const c = text[i];
         if (c === '"') {
-          if (inQuotes && text[i + 1] === '"') { current += '"'; i++; }
+          if (inQuotes && text[i+1] === '"') { current += '"'; i++; }
           else inQuotes = !inQuotes;
-        } else if (c === ',' && !inQuotes) {
-          row.push(current);
-          current = '';
-        } else if ((c === '\n' || c === '\r') && !inQuotes) {
-          if (c === '\r' && text[i + 1] === '\n') i++;
-          row.push(current);
-          result.push(row);
-          row = [];
-          current = '';
-        } else {
-          current += c;
-        }
+        } else if (c === ',' && !inQuotes) { row.push(current); current = ''; }
+        else if ((c === '\n' || c === '\r') && !inQuotes) {
+          if (c === '\r' && text[i+1] === '\n') i++;
+          row.push(current); result.push(row); row = []; current = '';
+        } else current += c;
       }
-      if (current || row.length) {
-        row.push(current);
-        result.push(row);
-      }
+      if (current || row.length) { row.push(current); result.push(row); }
       return result.filter(r => r.some(cell => String(cell).trim() !== ''));
     }
-
-    // Convert Arabic-Indic digits and thousand separators to normal number
     function toNumber(val) {
       if (val === null || val === undefined) return null;
       let s = String(val).trim();
       if (s === '') return null;
-      // Arabic-Indic digits ٠-٩ → 0-9
       s = s.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-      // Remove thousand separators (Arabic ٬ and regular , and spaces)
-      s = s.replace(/[٬,\s]/g, '');
-      // Percent?
-      s = s.replace(/%/g, '');
+      s = s.replace(/[٬,\s%]/g, '');
       const n = Number(s);
       return isNaN(n) ? null : n;
     }
 
-    async function fetchSheet(sheetName) {
-      const url = sheetCsvUrl(sheetName);
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status} — ${sheetName}`);
+    async function fetchSheet(name) {
+      const res = await fetch(sheetCsvUrl(name), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       const text = await res.text();
-      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-        throw new Error(`الورقة "${sheetName}" غير متاحة (فعّل المشاركة العامة)`);
-      }
+      if (text.trim().startsWith('<!')) throw new Error('ورقة غير متاحة: ' + name);
       return parseCsv(text);
     }
 
+    // ---------- Apps Script API ----------
+    async function apiPost(payload) {
+      if (!CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL.includes('REMPLACE')) {
+        alert('⚠️ Apps Script غير مفعّل بعد.\nاتبع التعليمات لنشر Code.gs وضع الرابط في CONFIG.');
+        return null;
+      }
+      payload.secret = CONFIG.SECRET;
+      try {
+        const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+          method: 'POST',
+          // text/plain avoids CORS preflight issues with Apps Script
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        return json;
+      } catch (err) {
+        console.error(err);
+        alert('خطأ في الاتصال بـ Apps Script: ' + err.message);
+        return null;
+      }
+    }
+
+    // ---------- Load ----------
     async function loadFromGoogleSheets() {
-      setStatus('جاري التحميل من Google Sheets...', 'loading');
+      setStatus('جاري التحميل...', 'loading');
       showLoading(true);
       try {
-        // --- الملخص (الرصيد السابق + قيمة الاشتراك إن وجدت) ---
         try {
           const sumRows = await fetchSheet(CONFIG.SHEET_SUMMARY);
           sumRows.forEach(row => {
             const label = (row[0] || '').trim();
             const val = toNumber(row[1]);
             if (label.includes('الرصيد السابق') && val !== null) data.prevBalance = val;
-            if (label.includes('قيمة الاشتراك') && val !== null) data.monthlyFee = val;
           });
-        } catch (e) {
-          console.warn('الملخص:', e.message);
-        }
+        } catch (e) { console.warn(e); }
 
-        // --- الاشتراكات ---
         const subsRows = await fetchSheet(CONFIG.SHEET_SUBS);
         data.apartments = {};
-
-        // Detect monthly fee from first row if present (col index 3 often has 1000)
         if (subsRows.length > 0) {
           const fee = toNumber(subsRows[0][3]);
           if (fee && fee > 0 && fee < 100000) data.monthlyFee = fee;
         }
-
         for (let i = 0; i < subsRows.length; i++) {
           const row = subsRows[i];
           const aptNum = toNumber(row[0]);
-          // Skip non-apartment rows (empty first cell, or totals, or headers)
           if (aptNum === null || aptNum < 1 || aptNum > 999) continue;
-          // Skip if it looks like a percentage row
           if (String(row[1] || '').includes('%')) continue;
-
           const months = [];
-          for (let m = 1; m <= 12; m++) {
-            months.push(toNumber(row[m]));
-          }
+          for (let m = 1; m <= 12; m++) months.push(toNumber(row[m]));
           data.apartments[aptNum] = months;
         }
+        if (!Object.keys(data.apartments).length) throw new Error('ما لقيت شقق');
 
-        if (Object.keys(data.apartments).length === 0) {
-          throw new Error('ما لقيت حتى شقة في جدول الاشتراكات');
-        }
-
-        // --- المصاريف ---
         const expRows = await fetchSheet(CONFIG.SHEET_EXPENSES);
         data.expenses = [];
         for (let i = 0; i < expRows.length; i++) {
           const row = expRows[i];
           const first = (row[0] || '').trim();
-          // Skip header and notes and total row
           if (first === 'التاريخ' || first.startsWith('ملاحظة') || first === '') continue;
           if ((row[2] || '').trim() === 'المجموع') continue;
-
           const amount = toNumber(row[3]);
           if (amount === null && !row[2]) continue;
-
           data.expenses.push({
-            date: first,
-            type: (row[1] || '').trim() || 'أخرى',
-            desc: (row[2] || '').trim(),
-            amount: amount || 0,
-            link: (row[4] || '').trim()
+            date: first, type: (row[1] || '').trim() || 'أخرى',
+            desc: (row[2] || '').trim(), amount: amount || 0, link: (row[4] || '').trim()
           });
         }
-
-        setStatus('✅ تم التحديث · ' + new Date().toLocaleTimeString('ar-DZ') + ' · ' + Object.keys(data.apartments).length + ' شقة', 'ok');
+        setStatus('✅ تم التحديث · ' + new Date().toLocaleTimeString('ar-DZ'), 'ok');
         renderAll();
       } catch (err) {
-        console.error(err);
-        setStatus('❌ فشل التحميل: ' + err.message, 'error');
+        setStatus('❌ ' + err.message, 'error');
         renderAll();
       } finally {
         showLoading(false);
@@ -393,26 +454,22 @@
     }
 
     function setStatus(msg, type) {
-      const el = document.getElementById('status-text');
+      document.getElementById('status-text').textContent = msg;
       const bar = document.getElementById('status-bar');
-      el.textContent = msg;
       bar.className = 'border-b text-center py-1.5 text-xs ' + (
         type === 'ok' ? 'bg-green-50 border-green-200 text-green-700' :
         type === 'error' ? 'bg-red-50 border-red-200 text-red-700' :
         'bg-slate-100 border-slate-200 text-slate-500'
       );
     }
-
     function showLoading(show) {
       const el = document.getElementById('loading-overlay');
       if (show) { el.classList.remove('hidden'); el.style.opacity = '1'; }
       else { el.style.opacity = '0'; setTimeout(() => el.classList.add('hidden'), 300); }
     }
-
     function refreshFromSheets() { loadFromGoogleSheets(); }
 
-    // Auth
-    let isAdmin = false;
+    // ---------- Auth ----------
     function openLoginModal() {
       document.getElementById('login-modal').classList.remove('hidden');
       document.getElementById('login-modal').classList.add('flex');
@@ -431,6 +488,7 @@
         document.getElementById('btn-login').style.display = 'none';
         closeLoginModal();
         sessionStorage.setItem('a2_admin', '1');
+        renderAll();
       } else {
         document.getElementById('login-error').classList.remove('hidden');
       }
@@ -440,6 +498,7 @@
       document.body.classList.remove('is-admin');
       document.getElementById('btn-login').style.display = '';
       sessionStorage.removeItem('a2_admin');
+      renderAll();
     }
     if (sessionStorage.getItem('a2_admin') === '1') {
       isAdmin = true;
@@ -447,7 +506,87 @@
       document.getElementById('btn-login').style.display = 'none';
     }
 
-    // Render
+    // ---------- Write actions ----------
+    async function onPaymentChange(apt, month, raw) {
+      const val = raw === '' ? null : Number(raw);
+      if (raw !== '' && isNaN(val)) { alert('رقم غير صالح'); return; }
+      // optimistic UI
+      if (!data.apartments[apt]) data.apartments[apt] = Array(12).fill(null);
+      data.apartments[apt][month] = val;
+      renderAll();
+
+      const res = await apiPost({ action: 'updatePayment', apartment: apt, month: month, value: val });
+      if (res && res.ok) {
+        setStatus('✅ تم حفظ شقة ' + apt + ' في Sheets', 'ok');
+      } else if (res) {
+        setStatus('❌ فشل الحفظ: ' + (res.error || ''), 'error');
+        loadFromGoogleSheets(); // revert
+      }
+    }
+
+    async function savePrevBalance() {
+      const val = Number(document.getElementById('edit-prev-balance').value);
+      if (isNaN(val)) { alert('رقم غير صالح'); return; }
+      data.prevBalance = val;
+      renderSummary();
+      const res = await apiPost({ action: 'updateSetting', key: 'prevBalance', value: val });
+      if (res && res.ok) setStatus('✅ تم حفظ الرصيد السابق', 'ok');
+      else if (res) setStatus('❌ ' + (res.error || ''), 'error');
+    }
+
+    function openAddExpense() {
+      document.getElementById('expense-modal').classList.remove('hidden');
+      document.getElementById('expense-modal').classList.add('flex');
+      document.getElementById('exp-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('exp-desc').value = '';
+      document.getElementById('exp-amount').value = '';
+      document.getElementById('exp-link').value = '';
+    }
+    function closeExpenseModal() {
+      document.getElementById('expense-modal').classList.add('hidden');
+      document.getElementById('expense-modal').classList.remove('flex');
+    }
+
+    async function addExpense() {
+      const expense = {
+        date: document.getElementById('exp-date').value,
+        type: document.getElementById('exp-type').value,
+        desc: document.getElementById('exp-desc').value.trim(),
+        amount: Number(document.getElementById('exp-amount').value),
+        link: document.getElementById('exp-link').value.trim()
+      };
+      if (!expense.date || !expense.desc || !expense.amount) {
+        alert('عبّي التاريخ والوصف والمبلغ');
+        return;
+      }
+      const res = await apiPost({ action: 'addExpense', expense });
+      if (res && res.ok) {
+        closeExpenseModal();
+        setStatus('✅ تمت إضافة المصروف', 'ok');
+        loadFromGoogleSheets();
+      } else if (res) {
+        alert('فشل: ' + (res.error || ''));
+      }
+    }
+
+    async function deleteExpense(idx) {
+      if (!confirm('تحذف هذا المصروف من Google Sheets؟')) return;
+      const res = await apiPost({ action: 'deleteExpense', rowIndex: idx });
+      if (res && res.ok) {
+        setStatus('✅ تم الحذف', 'ok');
+        loadFromGoogleSheets();
+      } else if (res) {
+        alert('فشل: ' + (res.error || ''));
+      }
+    }
+
+    // ---------- Render ----------
+    const MONTH_NAMES_AR = ['جانفي','فيفري','مارس','أفريل','ماي','جوان','جويلية','أوت','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+    function getPreviousMonthIndex() {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Africa/Algiers' }));
+      return (now.getMonth() + 11) % 12;
+    }
     function fmt(n) {
       if (n === null || n === undefined) return '—';
       return Number(n).toLocaleString('ar-DZ');
@@ -458,26 +597,14 @@
       return 'unpaid';
     }
 
-    // أسماء الأشهر بالدارجة/العربية (مطابقة لأعمدة الجدول)
-    const MONTH_NAMES_AR = ['جانفي','فيفري','مارس','أفريل','ماي','جوان','جويلية','أوت','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-    const MONTH_NAMES_SHORT = ['JAN','FEV','MAR','AVR','MAI','JUI','JUIL','AOUT','SEP','OCT','NOV','DEC'];
-
-    // الشهر السابق حسب توقيت الجزائر (Africa/Algiers)
-    function getPreviousMonthIndex() {
-      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Africa/Algiers' }));
-      // getMonth(): 0=Jan ... 11=Dec → الشهر السابق
-      return (now.getMonth() + 11) % 12; // إذا جانفي → ديسمبر (11)
-    }
-
     function calcTotals() {
       let totalSubs = 0;
       let paidAptsPrevMonth = [];
       const monthTotals = Array(12).fill(0);
       const unpaidCount = Array(12).fill(0);
       const paidCountMonth = Array(12).fill(0);
-      const aptKeys = Object.keys(data.apartments).map(Number).sort((a, b) => a - b);
+      const aptKeys = Object.keys(data.apartments).map(Number).sort((a,b)=>a-b);
       const prevMonth = getPreviousMonthIndex();
-
       aptKeys.forEach(num => {
         const months = data.apartments[num] || Array(12).fill(null);
         let aptTotal = 0;
@@ -489,27 +616,31 @@
           }
         });
         totalSubs += aptTotal;
-        // فقط الشقق اللي دفعت الشهر السابق (> 0)
         const prevVal = months[prevMonth];
-        if (prevVal !== null && prevVal !== undefined && prevVal > 0) {
-          paidAptsPrevMonth.push(num);
-        }
+        if (prevVal !== null && prevVal !== undefined && prevVal > 0) paidAptsPrevMonth.push(num);
       });
       const totalExp = data.expenses.reduce((s, e) => s + (e.amount || 0), 0);
       const newBal = data.prevBalance + totalSubs - totalExp;
-      const potential = aptKeys.length * 12 * data.monthlyFee;
-      const rate = potential > 0 ? ((totalSubs / potential) * 100).toFixed(2) : 0;
-      return {
-        totalSubs, totalExp, newBal,
-        paidAptsPrevMonth, prevMonth,
-        monthTotals, unpaidCount, paidCountMonth,
-        aptKeys, potential, rate
-      };
+      // نسبة التحصيل حتى الشهر الحالي فقط (توقيت الجزائر)
+      const nowAlg = new Date(new Date().toLocaleString('en-US', { timeZone: 'Africa/Algiers' }));
+      const monthsElapsed = nowAlg.getMonth() + 1; // 1=جانفي ... 9=سبتمبر
+      // المبالغ المحصلة حتى الشهر الحالي فقط
+      let collectedUntilNow = 0;
+      aptKeys.forEach(num => {
+        const months = data.apartments[num] || Array(12).fill(null);
+        for (let i = 0; i < monthsElapsed; i++) {
+          collectedUntilNow += (months[i] || 0);
+        }
+      });
+      const potential = aptKeys.length * monthsElapsed * data.monthlyFee;
+      const rate = potential > 0 ? ((collectedUntilNow / potential) * 100).toFixed(2) : 0;
+      return { totalSubs, totalExp, newBal, paidAptsPrevMonth, prevMonth, monthTotals, unpaidCount, paidCountMonth, aptKeys, potential, rate, collectedUntilNow, monthsElapsed };
     }
 
     function renderSummary() {
       const t = calcTotals();
       document.getElementById('prev-balance').textContent = fmt(data.prevBalance);
+      document.getElementById('edit-prev-balance').value = data.prevBalance;
       document.getElementById('total-subs').textContent = fmt(t.totalSubs);
       document.getElementById('total-exp').textContent = fmt(t.totalExp);
       document.getElementById('new-balance').textContent = fmt(t.newBal);
@@ -520,33 +651,9 @@
         ? t.paidAptsPrevMonth.map(n => 'شقة ' + n).join(' و ')
         : 'لا أحد دفع شهر ' + MONTH_NAMES_AR[t.prevMonth];
       document.getElementById('collection-rate').textContent = t.rate + '%';
-      document.getElementById('collection-detail').textContent = fmt(t.totalSubs) + ' / ' + fmt(t.potential) + ' دج محتملة';
+      document.getElementById('collection-detail').textContent = fmt(t.collectedUntilNow) + ' / ' + fmt(t.potential) + ' دج (حتى ' + MONTH_NAMES_AR[t.monthsElapsed - 1] + ')';
       document.getElementById('monthly-fee-display').textContent = fmt(data.monthlyFee);
     }
-
-    // ساعة وتاريخ حيّ بتوقيت الجزائر
-    function updateClock() {
-      const el = document.getElementById('live-clock');
-      if (!el) return;
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('ar-DZ', {
-        timeZone: 'Africa/Algiers',
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      const timeStr = now.toLocaleTimeString('ar-DZ', {
-        timeZone: 'Africa/Algiers',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      });
-      el.textContent = dateStr + '  ·  ' + timeStr + ' (توقيت الجزائر)';
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
 
     function renderSubs() {
       const t = calcTotals();
@@ -558,8 +665,15 @@
         const tr = document.createElement('tr');
         tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
         let cells = `<td class="px-3 py-2 font-bold sticky right-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} border-l-2 border-primary-200">${num}</td>`;
-        months.forEach(v => {
-          cells += `<td class="px-2 py-2 ${cellClass(v)}">${v === null || v === undefined ? '—' : fmt(v)}</td>`;
+        months.forEach((v, mi) => {
+          if (isAdmin) {
+            const display = (v === null || v === undefined) ? '' : v;
+            cells += `<td class="px-1 py-1"><input type="number" class="edit-input" value="${display}" min="0" step="100"
+              onchange="onPaymentChange(${num}, ${mi}, this.value)"
+              onkeydown="if(event.key==='Enter'){this.blur();}"></td>`;
+          } else {
+            cells += `<td class="px-2 py-2 ${cellClass(v)}">${v === null || v === undefined ? '—' : fmt(v)}</td>`;
+          }
         });
         cells += `<td class="px-3 py-2 font-bold ${total > 0 ? 'text-success-700 bg-success-50' : 'text-slate-400'}">${fmt(total)}</td>`;
         tr.innerHTML = cells;
@@ -568,21 +682,8 @@
       document.getElementById('subs-footer').innerHTML = `
         <tr>
           <td class="px-3 py-3 sticky right-0 bg-slate-100">المجموع الشهري</td>
-          ${t.monthTotals.map(v => `<td class="px-2 py-3 ${v > 0 ? 'text-success-700' : ''}">${fmt(v)}</td>`).join('')}
+          ${t.monthTotals.map(v => `<td class="px-2 py-3 ${v>0?'text-success-700':''}">${fmt(v)}</td>`).join('')}
           <td class="px-3 py-3 bg-primary-100 text-primary-800">${fmt(t.totalSubs)}</td>
-        </tr>
-        <tr class="bg-warning-50">
-          <td class="px-3 py-2 sticky right-0 bg-warning-50 text-sm">عدد اللي ما يخلّصوش</td>
-          ${t.unpaidCount.map(v => `<td class="px-2 py-2 text-sm ${v > 0 ? 'text-danger-600' : ''}">${v}</td>`).join('')}
-          <td></td>
-        </tr>
-        <tr class="bg-primary-50">
-          <td class="px-3 py-2 sticky right-0 bg-primary-50 text-sm">نسبة الدفع %</td>
-          ${t.paidCountMonth.map(v => {
-            const pct = t.aptKeys.length ? ((v / t.aptKeys.length) * 100).toFixed(1) : 0;
-            return `<td class="px-2 py-2 text-sm">${pct}%</td>`;
-          }).join('')}
-          <td></td>
         </tr>`;
     }
 
@@ -591,7 +692,7 @@
       tbody.innerHTML = '';
       const total = data.expenses.reduce((s, e) => s + (e.amount || 0), 0);
       document.getElementById('exp-total').textContent = fmt(total);
-      data.expenses.forEach(exp => {
+      data.expenses.forEach((exp, idx) => {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 border-b border-slate-100';
         tr.innerHTML = `
@@ -600,7 +701,10 @@
           <td class="px-4 py-4">${exp.desc}</td>
           <td class="px-4 py-4 text-center font-bold text-danger-600">${fmt(exp.amount)}</td>
           <td class="px-4 py-4 text-center">
-            ${exp.link ? `<a href="${exp.link}" target="_blank" class="text-primary-600 hover:underline text-xs font-medium bg-primary-50 px-3 py-1.5 rounded-lg">عرض الفاتورة</a>` : '—'}
+            ${exp.link ? `<a href="${exp.link}" target="_blank" class="text-primary-600 text-xs font-medium bg-primary-50 px-3 py-1.5 rounded-lg">عرض</a>` : '—'}
+          </td>
+          <td class="px-4 py-4 text-center admin-only">
+            <button onclick="deleteExpense(${idx})" class="text-danger-600 text-xs font-bold bg-danger-50 px-2 py-1 rounded">حذف</button>
           </td>`;
         tbody.appendChild(tr);
       });
@@ -615,7 +719,17 @@
       document.getElementById('tab-' + name).classList.add('active');
     }
 
-    // Start
+    function updateClock() {
+      const el = document.getElementById('live-clock');
+      if (!el) return;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('ar-DZ', { timeZone: 'Africa/Algiers', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const timeStr = now.toLocaleTimeString('ar-DZ', { timeZone: 'Africa/Algiers', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      el.textContent = dateStr + '  ·  ' + timeStr + ' (توقيت الجزائر)';
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
     loadFromGoogleSheets();
   </script>
 </body>
