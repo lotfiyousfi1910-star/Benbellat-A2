@@ -65,6 +65,20 @@
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-4px); }
     }
+    .notice-pulse {
+      animation: notice-glow 2.5s ease-in-out infinite;
+    }
+    @keyframes notice-glow {
+      0%, 100% { box-shadow: 0 4px 20px rgba(245, 158, 11, 0.25); }
+      50% { box-shadow: 0 6px 28px rgba(239, 68, 68, 0.4); }
+    }
+    .here-link {
+      animation: here-blink 1.8s ease-in-out infinite;
+    }
+    @keyframes here-blink {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -182,6 +196,35 @@
           <h3 class="font-bold text-slate-700 mb-3">نسبة التحصيل</h3>
           <p class="text-4xl font-bold text-warning-600" id="collection-rate">0%</p>
           <p class="text-sm text-slate-500 mt-1" id="collection-detail">—</p>
+        </div>
+      </div>
+
+      <!-- ملاحظة هامة -->
+      <div class="mt-8 relative overflow-hidden rounded-2xl border-2 border-amber-400 bg-gradient-to-l from-amber-50 via-orange-50 to-red-50 p-5 sm:p-6 shadow-lg notice-pulse">
+        <div class="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-red-500 via-amber-500 to-orange-400"></div>
+        <div class="flex flex-col sm:flex-row gap-4 items-start">
+          <div class="flex-shrink-0">
+            <div class="w-14 h-14 rounded-full bg-red-500 text-white flex items-center justify-center text-2xl font-black shadow-md animate-pulse">!</div>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg sm:text-xl font-extrabold text-red-700 mb-2 flex items-center gap-2">
+              <span>⚠️ ملاحظة هامة جداً</span>
+            </h3>
+            <p class="text-slate-800 text-base sm:text-lg leading-relaxed font-semibold">
+              تم استلام خزينة مال عمارة <span class="text-primary-700 font-black">A2</span>
+              يوم <span class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md font-black">1 سبتمبر 2026</span>،
+              لذلك أنا لست معني بأي شيء قبل هذا التاريخ.
+            </p>
+            <p class="text-slate-700 text-base sm:text-lg leading-relaxed mt-3">
+              يمكن الاطلاع على كامل المصاريف والاشتراكات السابقة مفصّلة عند الضغط
+              <a href="https://drive.google.com/file/d/1Wqb56KBFxP2yeX4DDbRh1IJ5hmNPcgD1/view?usp=drivesdk"
+                 target="_blank" rel="noopener"
+                 class="here-link inline-flex items-center gap-1 mx-1 px-3 py-1 rounded-lg bg-primary-600 text-white font-black text-base sm:text-lg shadow-md hover:bg-primary-700 hover:scale-105 transition-all duration-200 underline underline-offset-2">
+                هنا
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -684,6 +727,19 @@
           <td class="px-3 py-3 sticky right-0 bg-slate-100">المجموع الشهري</td>
           ${t.monthTotals.map(v => `<td class="px-2 py-3 ${v>0?'text-success-700':''}">${fmt(v)}</td>`).join('')}
           <td class="px-3 py-3 bg-primary-100 text-primary-800">${fmt(t.totalSubs)}</td>
+        </tr>
+        <tr class="bg-warning-50">
+          <td class="px-3 py-2 sticky right-0 bg-warning-50 text-sm font-bold">عدد اللي ما دفعوش</td>
+          ${t.unpaidCount.map(v => `<td class="px-2 py-2 text-sm ${v>0?'text-danger-600 font-bold':''}">${v}</td>`).join('')}
+          <td class="px-3 py-2"></td>
+        </tr>
+        <tr class="bg-primary-50">
+          <td class="px-3 py-2 sticky right-0 bg-primary-50 text-sm font-bold">نسبة المسددين %</td>
+          ${t.paidCountMonth.map(v => {
+            const pct = t.aptKeys.length ? ((v / t.aptKeys.length) * 100).toFixed(1) : 0;
+            return `<td class="px-2 py-2 text-sm font-semibold ${Number(pct)>0?'text-success-700':''}">${pct}%</td>`;
+          }).join('')}
+          <td class="px-3 py-2"></td>
         </tr>`;
     }
 
