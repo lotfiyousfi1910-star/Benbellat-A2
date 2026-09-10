@@ -79,6 +79,17 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
       50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
     }
+    .flag-wave {
+      display: inline-block;
+      transform-origin: left center;
+      animation: wave-flag 1.4s ease-in-out infinite;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
+    }
+    @keyframes wave-flag {
+      0% { transform: rotate(-8deg) skewY(-2deg); }
+      50% { transform: rotate(10deg) skewY(2deg); }
+      100% { transform: rotate(-8deg) skewY(-2deg); }
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -99,7 +110,10 @@
           </svg>
         </div>
         <div>
-          <h1 class="text-2xl font-bold">إدارة عمارة A2</h1>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-bold">إدارة عمارة A2</h1>
+            <span class="flag-wave text-2xl sm:text-3xl" title="الجزائر">🇩🇿</span>
+          </div>
           <p class="text-primary-200 text-sm">نظام متابعة الاشتراكات والمصاريف</p>
         </div>
       </div>
@@ -136,16 +150,16 @@
   <nav class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
     <div class="max-w-7xl mx-auto px-4">
       <div class="flex gap-3 overflow-x-auto py-3 justify-center sm:justify-start">
-        <button onclick="showTab('summary')" id="tab-summary" class="tab-btn active tab-card flex flex-col items-center gap-1 px-6 py-3 rounded-2xl font-bold text-base whitespace-nowrap transition-all duration-300 min-w-[110px]">
-          <span class="tab-icon text-3xl leading-none">📊</span>
+        <button onclick="showTab('summary')" id="tab-summary" class="tab-btn active tab-card flex flex-col items-center gap-1 px-6 py-3 rounded-2xl font-extrabold text-lg sm:text-xl whitespace-nowrap transition-all duration-300 min-w-[120px] sm:min-w-[140px]">
+          <span class="tab-icon text-4xl sm:text-5xl leading-none">📊</span>
           <span>الملخص</span>
         </button>
-        <button onclick="showTab('subs')" id="tab-subs" class="tab-btn tab-card flex flex-col items-center gap-1 px-6 py-3 rounded-2xl font-bold text-base whitespace-nowrap transition-all duration-300 min-w-[110px]">
-          <span class="tab-icon text-3xl leading-none">💰</span>
+        <button onclick="showTab('subs')" id="tab-subs" class="tab-btn tab-card flex flex-col items-center gap-1 px-6 py-3 rounded-2xl font-extrabold text-lg sm:text-xl whitespace-nowrap transition-all duration-300 min-w-[120px] sm:min-w-[140px]">
+          <span class="tab-icon text-4xl sm:text-5xl leading-none">💰</span>
           <span>الاشتراكات</span>
         </button>
-        <button onclick="showTab('expenses')" id="tab-expenses" class="tab-btn tab-card flex flex-col items-center gap-1 px-6 py-3 rounded-2xl font-bold text-base whitespace-nowrap transition-all duration-300 min-w-[110px]">
-          <span class="tab-icon text-3xl leading-none">🧾</span>
+        <button onclick="showTab('expenses')" id="tab-expenses" class="tab-btn tab-card flex flex-col items-center gap-1 px-6 py-3 rounded-2xl font-extrabold text-lg sm:text-xl whitespace-nowrap transition-all duration-300 min-w-[120px] sm:min-w-[140px]">
+          <span class="tab-icon text-4xl sm:text-5xl leading-none">🧾</span>
           <span>المصاريف</span>
         </button>
       </div>
@@ -161,7 +175,7 @@
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
-          <span class="text-slate-500 text-sm font-medium">الرصيد السابق</span>
+          <span class="text-slate-500 text-sm font-medium">الرصيد السابق <span class="text-slate-400 font-normal text-xs">(المتبقي من السنة الماضية)</span></span>
           <p class="text-3xl font-bold text-slate-700 mt-2"><span id="prev-balance">0</span> <span class="text-base font-normal text-slate-400">دج</span></p>
           <div class="admin-block mt-2">
             <input type="number" id="edit-prev-balance" class="edit-input w-28" placeholder="0">
@@ -768,7 +782,26 @@
 
     function renderAll() { renderSummary(); renderSubs(); renderExpenses(); }
 
+    // أصوات خفيفة عند تغيير التبويب (Web Audio API — بلا ملفات خارجية)
+    function playTabSound(type) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const freqs = { summary: 523.25, subs: 659.25, expenses: 783.99 }; // C5 E5 G5
+        osc.frequency.value = freqs[type] || 600;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.2);
+      } catch (e) {}
+    }
+
     function showTab(name) {
+      playTabSound(name);
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('panel-' + name).classList.remove('hidden');
