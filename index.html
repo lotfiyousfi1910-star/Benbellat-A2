@@ -81,6 +81,9 @@
   <div id="status-bar" class="bg-slate-100 border-b border-slate-200 text-center py-1.5 text-xs text-slate-500">
     <span id="status-text">جاري الاتصال بـ Google Sheets...</span>
   </div>
+  <div class="bg-primary-900 text-primary-100 text-center py-1.5 text-sm font-semibold tracking-wide">
+    🕐 <span id="live-clock">—</span>
+  </div>
 
   <div id="admin-bar" class="admin-only bg-amber-500 text-white text-center py-2 text-sm font-semibold flex flex-wrap items-center justify-center gap-2 px-2">
     <span>🔓 وضع المسؤول</span>
@@ -129,7 +132,8 @@
           <p class="text-4xl font-bold text-primary-600" id="apt-count">0</p>
         </div>
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
-          <h3 class="font-bold text-slate-700 mb-3">الشقق اللي دفعت</h3>
+          <h3 class="font-bold text-slate-700 mb-1">الشقق اللي دفعت</h3>
+          <p class="text-xs text-slate-400 mb-2" id="prev-month-label">شهر أوت</p>
           <p class="text-4xl font-bold text-success-600" id="paid-count">0</p>
           <p class="text-sm text-slate-500 mt-1" id="paid-list">—</p>
         </div>
@@ -454,13 +458,26 @@
       return 'unpaid';
     }
 
+    // أسماء الأشهر بالدارجة/العربية (مطابقة لأعمدة الجدول)
+    const MONTH_NAMES_AR = ['جانفي','فيفري','مارس','أفريل','ماي','جوان','جويلية','أوت','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    const MONTH_NAMES_SHORT = ['JAN','FEV','MAR','AVR','MAI','JUI','JUIL','AOUT','SEP','OCT','NOV','DEC'];
+
+    // الشهر السابق حسب توقيت الجزائر (Africa/Algiers)
+    function getPreviousMonthIndex() {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Africa/Algiers' }));
+      // getMonth(): 0=Jan ... 11=Dec → الشهر السابق
+      return (now.getMonth() + 11) % 12; // إذا جانفي → ديسمبر (11)
+    }
+
     function calcTotals() {
       let totalSubs = 0;
-      let paidApts = [];
+      let paidAptsPrevMonth = [];
       const monthTotals = Array(12).fill(0);
       const unpaidCount = Array(12).fill(0);
       const paidCountMonth = Array(12).fill(0);
       const aptKeys = Object.keys(data.apartments).map(Number).sort((a, b) => a - b);
+      const prevMonth = getPreviousMonthIndex();
+
       aptKeys.forEach(num => {
         const months = data.apartments[num] || Array(12).fill(null);
         let aptTotal = 0;
@@ -472,13 +489,22 @@
           }
         });
         totalSubs += aptTotal;
-        if (aptTotal > 0) paidApts.push(num);
+        // فقط الشقق اللي دفعت الشهر السابق (> 0)
+        const prevVal = months[prevMonth];
+        if (prevVal !== null && prevVal !== undefined && prevVal > 0) {
+          paidAptsPrevMonth.push(num);
+        }
       });
       const totalExp = data.expenses.reduce((s, e) => s + (e.amount || 0), 0);
       const newBal = data.prevBalance + totalSubs - totalExp;
       const potential = aptKeys.length * 12 * data.monthlyFee;
       const rate = potential > 0 ? ((totalSubs / potential) * 100).toFixed(2) : 0;
-      return { totalSubs, totalExp, newBal, paidApts, monthTotals, unpaidCount, paidCountMonth, aptKeys, potential, rate };
+      return {
+        totalSubs, totalExp, newBal,
+        paidAptsPrevMonth, prevMonth,
+        monthTotals, unpaidCount, paidCountMonth,
+        aptKeys, potential, rate
+      };
     }
 
     function renderSummary() {
@@ -488,12 +514,39 @@
       document.getElementById('total-exp').textContent = fmt(t.totalExp);
       document.getElementById('new-balance').textContent = fmt(t.newBal);
       document.getElementById('apt-count').textContent = t.aptKeys.length;
-      document.getElementById('paid-count').textContent = t.paidApts.length;
-      document.getElementById('paid-list').textContent = t.paidApts.length ? t.paidApts.map(n => 'شقة ' + n).join(' و ') : 'لا أحد بعد';
+      document.getElementById('paid-count').textContent = t.paidAptsPrevMonth.length;
+      document.getElementById('prev-month-label').textContent = 'شهر ' + MONTH_NAMES_AR[t.prevMonth];
+      document.getElementById('paid-list').textContent = t.paidAptsPrevMonth.length
+        ? t.paidAptsPrevMonth.map(n => 'شقة ' + n).join(' و ')
+        : 'لا أحد دفع شهر ' + MONTH_NAMES_AR[t.prevMonth];
       document.getElementById('collection-rate').textContent = t.rate + '%';
       document.getElementById('collection-detail').textContent = fmt(t.totalSubs) + ' / ' + fmt(t.potential) + ' دج محتملة';
       document.getElementById('monthly-fee-display').textContent = fmt(data.monthlyFee);
     }
+
+    // ساعة وتاريخ حيّ بتوقيت الجزائر
+    function updateClock() {
+      const el = document.getElementById('live-clock');
+      if (!el) return;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('ar-DZ', {
+        timeZone: 'Africa/Algiers',
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const timeStr = now.toLocaleTimeString('ar-DZ', {
+        timeZone: 'Africa/Algiers',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      el.textContent = dateStr + '  ·  ' + timeStr + ' (توقيت الجزائر)';
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
 
     function renderSubs() {
       const t = calcTotals();
