@@ -32,15 +32,20 @@
     thead th { position: sticky; top: 0; z-index: 10; }
     .table-scroll { max-height: 65vh; overflow: auto; }
     .card-shadow { box-shadow: 0 4px 20px -2px rgba(0,0,0,0.08); }
-    .edit-input { width: 70px; text-align: center; border: 1px solid #93c5fd; border-radius: 6px; padding: 2px 4px; background: #eff6ff; }
     .admin-only { display: none; }
     body.is-admin .admin-only { display: inline-flex; }
-    body.is-admin .view-only { display: none; }
+    #loading-overlay { transition: opacity 0.3s; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
-  <!-- Header -->
+  <div id="loading-overlay" class="fixed inset-0 bg-white/80 z-50 flex items-center justify-center">
+    <div class="text-center">
+      <div class="inline-block w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+      <p class="text-slate-600 font-semibold">جاري تحميل البيانات من Google Sheets...</p>
+    </div>
+  </div>
+
   <header class="bg-gradient-to-l from-primary-700 to-primary-900 text-white shadow-lg">
     <div class="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-3">
@@ -54,159 +59,100 @@
           <p class="text-primary-200 text-sm">نظام متابعة الاشتراكات والمصاريف</p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 flex-wrap justify-center">
         <div class="bg-white/10 px-4 py-2 rounded-lg text-sm">
           <span class="text-primary-200">الاشتراك الشهري:</span>
           <span class="font-bold text-lg mr-1" id="monthly-fee-display">1,000</span> دج
         </div>
-        <!-- Admin login / logout -->
-        <button id="btn-login" onclick="openLoginModal()" class="bg-white text-primary-700 hover:bg-primary-50 px-4 py-2 rounded-lg font-semibold text-sm transition flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <button onclick="refreshFromSheets()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          تحديث
+        </button>
+        <button id="btn-login" onclick="openLoginModal()" class="bg-white text-primary-700 hover:bg-primary-50 px-4 py-2 rounded-lg font-semibold text-sm transition">
           دخول المسؤول
         </button>
         <button id="btn-logout" onclick="logout()" class="admin-only bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold text-sm transition items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
           خروج
         </button>
       </div>
     </div>
   </header>
 
-  <!-- Admin bar (visible only when logged in) -->
-  <div id="admin-bar" class="admin-only bg-amber-500 text-white text-center py-2 text-sm font-semibold flex flex-wrap items-center justify-center gap-2 px-2">
-    <span>🔓 وضع المسؤول مفعّل</span>
-    <button onclick="saveToBrowser()" class="bg-white text-amber-700 px-3 py-1 rounded font-bold hover:bg-amber-50 text-xs">💾 حفظ هنا</button>
-    <button onclick="downloadUpdatedFile()" class="bg-green-700 text-white px-3 py-1 rounded font-bold hover:bg-green-800 text-xs">⬇️ تحميل الملف المحدّث</button>
-    <button onclick="clearBrowserCache()" class="bg-red-700 text-white px-3 py-1 rounded font-bold hover:bg-red-800 text-xs">🗑️ مسح ذاكرة المتصفح</button>
+  <div id="status-bar" class="bg-slate-100 border-b border-slate-200 text-center py-1.5 text-xs text-slate-500">
+    <span id="status-text">جاري الاتصال بـ Google Sheets...</span>
   </div>
 
-  <!-- Navigation Tabs -->
+  <div id="admin-bar" class="admin-only bg-amber-500 text-white text-center py-2 text-sm font-semibold flex flex-wrap items-center justify-center gap-2 px-2">
+    <span>🔓 وضع المسؤول</span>
+    <span class="text-amber-100 text-xs">| عدّل في Google Sheets ثم اضغط «تحديث»</span>
+    <a id="sheet-link" href="https://docs.google.com/spreadsheets/d/1mR8pDaEWsI1W3HETZvHLbt2veqcoDQum/edit" target="_blank" class="bg-white text-amber-700 px-3 py-1 rounded font-bold hover:bg-amber-50 text-xs">📊 فتح Google Sheets</a>
+  </div>
+
   <nav class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
     <div class="max-w-7xl mx-auto px-4">
       <div class="flex gap-1 overflow-x-auto py-2">
-        <button onclick="showTab('summary')" id="tab-summary" class="tab-btn active px-5 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition">
-          📊 الملخص العام
-        </button>
-        <button onclick="showTab('subs')" id="tab-subs" class="tab-btn px-5 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition hover:bg-slate-100">
-          💰 الاشتراكات
-        </button>
-        <button onclick="showTab('expenses')" id="tab-expenses" class="tab-btn px-5 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition hover:bg-slate-100">
-          🧾 المصاريف
-        </button>
+        <button onclick="showTab('summary')" id="tab-summary" class="tab-btn active px-5 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition">📊 الملخص العام</button>
+        <button onclick="showTab('subs')" id="tab-subs" class="tab-btn px-5 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition hover:bg-slate-100">💰 الاشتراكات</button>
+        <button onclick="showTab('expenses')" id="tab-expenses" class="tab-btn px-5 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition hover:bg-slate-100">🧾 المصاريف</button>
       </div>
     </div>
   </nav>
 
   <main class="max-w-7xl mx-auto px-4 py-8">
 
-    <!-- ==================== SUMMARY TAB ==================== -->
     <section id="panel-summary" class="tab-panel">
       <div class="mb-6">
         <h2 class="text-xl font-bold text-slate-700 mb-1">الملخص العام - عمارة A2</h2>
-        <p class="text-slate-500 text-sm">سنة 2026</p>
+        <p class="text-slate-500 text-sm">سنة 2026 · مصدر البيانات: Google Sheets</p>
       </div>
-
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-slate-500 text-sm font-medium">الرصيد السابق (2025)</span>
-            <div class="bg-slate-100 p-2 rounded-lg">
-              <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-          </div>
-          <p class="text-3xl font-bold text-slate-700">
-            <span id="prev-balance">0</span>
-            <span class="text-base font-normal text-slate-400">دج</span>
-          </p>
-          <div class="admin-only mt-2">
-            <input type="number" id="edit-prev-balance" class="edit-input w-28" onchange="updatePrevBalance(this.value)">
-          </div>
+          <span class="text-slate-500 text-sm font-medium">الرصيد السابق (2025)</span>
+          <p class="text-3xl font-bold text-slate-700 mt-2"><span id="prev-balance">0</span> <span class="text-base font-normal text-slate-400">دج</span></p>
         </div>
-
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-slate-500 text-sm font-medium">مجموع الاشتراكات</span>
-            <div class="bg-success-100 p-2 rounded-lg">
-              <svg class="w-5 h-5 text-success-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-          </div>
-          <p class="text-3xl font-bold text-success-600">
-            <span id="total-subs">9,000</span>
-            <span class="text-base font-normal text-slate-400">دج</span>
-          </p>
+          <span class="text-slate-500 text-sm font-medium">مجموع الاشتراكات</span>
+          <p class="text-3xl font-bold text-success-600 mt-2"><span id="total-subs">0</span> <span class="text-base font-normal text-slate-400">دج</span></p>
         </div>
-
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-slate-500 text-sm font-medium">مجموع المصاريف</span>
-            <div class="bg-danger-100 p-2 rounded-lg">
-              <svg class="w-5 h-5 text-danger-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-            </div>
-          </div>
-          <p class="text-3xl font-bold text-danger-500">
-            <span id="total-exp">9,000</span>
-            <span class="text-base font-normal text-slate-400">دج</span>
-          </p>
+          <span class="text-slate-500 text-sm font-medium">مجموع المصاريف</span>
+          <p class="text-3xl font-bold text-danger-500 mt-2"><span id="total-exp">0</span> <span class="text-base font-normal text-slate-400">دج</span></p>
         </div>
-
         <div class="bg-gradient-to-br from-primary-600 to-primary-800 rounded-2xl p-5 card-shadow text-white">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-primary-100 text-sm font-medium">الرصيد الجديد</span>
-            <div class="bg-white/20 p-2 rounded-lg">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-            </div>
-          </div>
-          <p class="text-3xl font-bold">
-            <span id="new-balance">0</span>
-            <span class="text-base font-normal text-primary-200">دج</span>
-          </p>
+          <span class="text-primary-100 text-sm font-medium">الرصيد الجديد</span>
+          <p class="text-3xl font-bold mt-2"><span id="new-balance">0</span> <span class="text-base font-normal text-primary-200">دج</span></p>
         </div>
       </div>
-
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
           <h3 class="font-bold text-slate-700 mb-3">عدد الشقق</h3>
-          <p class="text-4xl font-bold text-primary-600" id="apt-count">38</p>
-          <p class="text-sm text-slate-500 mt-1">من 53 إلى 90</p>
+          <p class="text-4xl font-bold text-primary-600" id="apt-count">0</p>
         </div>
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
           <h3 class="font-bold text-slate-700 mb-3">الشقق اللي دفعت</h3>
-          <p class="text-4xl font-bold text-success-600" id="paid-count">2</p>
-          <p class="text-sm text-slate-500 mt-1" id="paid-list">شقة 53 و شقة 76</p>
+          <p class="text-4xl font-bold text-success-600" id="paid-count">0</p>
+          <p class="text-sm text-slate-500 mt-1" id="paid-list">—</p>
         </div>
         <div class="bg-white rounded-2xl p-5 card-shadow border border-slate-100">
           <h3 class="font-bold text-slate-700 mb-3">نسبة التحصيل الكلية</h3>
-          <p class="text-4xl font-bold text-warning-600" id="collection-rate">1.97%</p>
-          <p class="text-sm text-slate-500 mt-1" id="collection-detail">9,000 / 456,000 دج محتملة</p>
+          <p class="text-4xl font-bold text-warning-600" id="collection-rate">0%</p>
+          <p class="text-sm text-slate-500 mt-1" id="collection-detail">—</p>
         </div>
       </div>
     </section>
 
-    <!-- ==================== SUBSCRIPTIONS TAB ==================== -->
     <section id="panel-subs" class="tab-panel hidden">
       <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 class="text-xl font-bold text-slate-700">جدول الاشتراكات</h2>
           <p class="text-slate-500 text-sm">تتبع الدفع الشهري لكل شقة (2026)</p>
         </div>
-        <div class="flex flex-wrap gap-2 items-center">
-          <div class="flex gap-2 text-xs">
-            <span class="inline-flex items-center gap-1 bg-success-100 text-success-700 px-3 py-1 rounded-full font-medium">
-              <span class="w-2 h-2 bg-success-500 rounded-full"></span> مدفوع
-            </span>
-            <span class="inline-flex items-center gap-1 bg-danger-100 text-danger-600 px-3 py-1 rounded-full font-medium">
-              <span class="w-2 h-2 bg-danger-500 rounded-full"></span> غير مدفوع
-            </span>
-            <span class="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-medium">
-              <span class="w-2 h-2 bg-slate-400 rounded-full"></span> فارغ
-            </span>
-          </div>
-          <button onclick="setMonthlyFee()" class="admin-only bg-primary-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary-700">
-            تعديل قيمة الاشتراك
-          </button>
+        <div class="flex gap-2 text-xs">
+          <span class="inline-flex items-center gap-1 bg-success-100 text-success-700 px-3 py-1 rounded-full font-medium"><span class="w-2 h-2 bg-success-500 rounded-full"></span> مدفوع</span>
+          <span class="inline-flex items-center gap-1 bg-danger-100 text-danger-600 px-3 py-1 rounded-full font-medium"><span class="w-2 h-2 bg-danger-500 rounded-full"></span> غير مدفوع</span>
+          <span class="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-medium"><span class="w-2 h-2 bg-slate-400 rounded-full"></span> فارغ</span>
         </div>
       </div>
-
       <div class="bg-white rounded-2xl card-shadow border border-slate-100 overflow-hidden">
         <div class="table-scroll">
           <table class="w-full text-sm text-center">
@@ -235,19 +181,11 @@
       </div>
     </section>
 
-    <!-- ==================== EXPENSES TAB ==================== -->
     <section id="panel-expenses" class="tab-panel hidden">
-      <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-bold text-slate-700">المصاريف</h2>
-          <p class="text-slate-500 text-sm">سجل المصاريف والفاتورات</p>
-        </div>
-        <button onclick="openAddExpense()" class="admin-only bg-success-600 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-success-700 flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          إضافة مصروف جديد
-        </button>
+      <div class="mb-6">
+        <h2 class="text-xl font-bold text-slate-700">المصاريف</h2>
+        <p class="text-slate-500 text-sm">سجل المصاريف والفاتورات (من Google Sheets)</p>
       </div>
-
       <div class="bg-white rounded-2xl card-shadow border border-slate-100 overflow-hidden mb-6">
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
@@ -258,37 +196,30 @@
                 <th class="px-4 py-3 text-right font-bold">وصف المصروف</th>
                 <th class="px-4 py-3 text-center font-bold">المبلغ (دج)</th>
                 <th class="px-4 py-3 text-center font-bold">الفاتورة</th>
-                <th class="px-4 py-3 text-center font-bold admin-only">إجراء</th>
               </tr>
             </thead>
             <tbody id="expenses-body"></tbody>
             <tfoot>
               <tr class="bg-slate-100 font-bold">
                 <td colspan="3" class="px-4 py-3 text-left">المجموع</td>
-                <td class="px-4 py-3 text-center text-danger-600 text-lg"><span id="exp-total">9,000</span> دج</td>
-                <td colspan="2"></td>
+                <td class="px-4 py-3 text-center text-danger-600 text-lg"><span id="exp-total">0</span> دج</td>
+                <td></td>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
-
-      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <strong>ملاحظة:</strong> عمود "نوع الخدمة" فيه قائمة منسدلة جاهزة. حط رابط صورة الفاتورة من Google Drive في آخر عمود إذا وجدت.
-      </div>
     </section>
-
   </main>
 
   <footer class="bg-white border-t border-slate-200 mt-12 py-6 text-center text-slate-500 text-sm">
-    <p>نظام إدارة عمارة A2 — محمي بكلمة مرور للمسؤول فقط</p>
+    <p>نظام إدارة عمارة A2 · البيانات من Google Sheets</p>
   </footer>
 
-  <!-- ========== LOGIN MODAL ========== -->
   <div id="login-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
       <h3 class="text-xl font-bold text-slate-800 mb-4 text-center">🔐 دخول المسؤول</h3>
-      <p class="text-sm text-slate-500 mb-4 text-center">أدخل كلمة المرور للتعديل على المحتوى</p>
+      <p class="text-sm text-slate-500 mb-4 text-center">للتعديل: افتح Google Sheets وعدّل هناك ثم اضغط «تحديث»</p>
       <input type="password" id="login-password" placeholder="كلمة المرور" class="w-full border border-slate-300 rounded-lg px-4 py-3 mb-4 text-center focus:outline-none focus:ring-2 focus:ring-primary-500" onkeydown="if(event.key==='Enter') tryLogin()">
       <p id="login-error" class="text-danger-500 text-sm text-center mb-3 hidden">كلمة المرور خاطئة</p>
       <div class="flex gap-3">
@@ -298,105 +229,186 @@
     </div>
   </div>
 
-  <!-- ========== ADD EXPENSE MODAL ========== -->
-  <div id="expense-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
-      <h3 class="text-xl font-bold text-slate-800 mb-4">إضافة مصروف جديد</h3>
-      <div class="space-y-3">
-        <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">التاريخ</label>
-          <input type="date" id="exp-date" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">نوع الخدمة</label>
-          <select id="exp-type" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
-            <option value="الكهرباء">الكهرباء</option>
-            <option value="الماء">الماء</option>
-            <option value="الصيانة">الصيانة</option>
-            <option value="التنظيف">التنظيف</option>
-            <option value="الأمن">الأمن</option>
-            <option value="أخرى">أخرى</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">وصف المصروف</label>
-          <input type="text" id="exp-desc" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="مثال: فاتورة كهرباء جانفي">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">المبلغ (دج)</label>
-          <input type="number" id="exp-amount" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="0">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">رابط الفاتورة (اختياري)</label>
-          <input type="url" id="exp-link" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="https://drive.google.com/...">
-        </div>
-      </div>
-      <div class="flex gap-3 mt-5">
-        <button onclick="addExpense()" class="flex-1 bg-success-600 text-white py-2.5 rounded-lg font-bold hover:bg-success-700">إضافة</button>
-        <button onclick="closeExpenseModal()" class="flex-1 bg-slate-200 text-slate-700 py-2.5 rounded-lg font-bold hover:bg-slate-300">إلغاء</button>
-      </div>
-    </div>
-  </div>
-
   <script>
-    // ===================== CONFIG =====================
-    // ⚠️ غيّر كلمة المرور ديالك هنا
-    const ADMIN_PASSWORD = "a2admin2026";
-
-    // ===================== DATA =====================
-    // ===BEGIN_DATA===
-    let data = {
-      "monthlyFee": 1000,
-      "prevBalance": 0,
-      "apartments": {
-        "53": [1000,1000,1000,1000,1000,1000,1000,0,null,null,null,null],
-        "54": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "55": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "56": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "57": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "58": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "59": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "60": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "61": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "62": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "63": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "64": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "65": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "66": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "67": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "68": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "69": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "70": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "71": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "72": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "73": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "74": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "75": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "76": [1000,1000,null,null,null,null,null,null,null,null,null,null],
-        "77": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "78": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "79": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "80": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "81": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "82": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "83": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "84": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "85": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "86": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "87": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "88": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "89": [null,null,null,null,null,null,null,null,null,null,null,null],
-        "90": [null,null,null,null,null,null,null,null,null,null,null,null]
-      },
-      "expenses": [
-        { "date": "2026-01-15", "type": "الكهرباء", "desc": "فاتورة كهرباء الأجزاء المشتركة - جانفي", "amount": 9000, "link": "https://drive.google.com/..." }
-      ]
+    // ============================================================
+    // CONFIG — جاهز مع Sheet ID ديالك
+    // ============================================================
+    const CONFIG = {
+      SHEET_ID: "1mR8pDaEWsI1W3HETZvHLbt2veqcoDQum",
+      SHEET_SUBS: "الاشتراكات",
+      SHEET_EXPENSES: "المصاريف",
+      SHEET_SUMMARY: "الملخص",
+      ADMIN_PASSWORD: "a2admin2026",
+      SHEET_EDIT_URL: "https://docs.google.com/spreadsheets/d/1mR8pDaEWsI1W3HETZvHLbt2veqcoDQum/edit"
     };
-    // ===END_DATA===
 
-    // ===================== AUTH =====================
+    let data = {
+      monthlyFee: 1000,
+      prevBalance: 0,
+      apartments: {},
+      expenses: []
+    };
+
+    function sheetCsvUrl(sheetName) {
+      return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+    }
+
+    function parseCsv(text) {
+      const result = [];
+      let row = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (c === '"') {
+          if (inQuotes && text[i + 1] === '"') { current += '"'; i++; }
+          else inQuotes = !inQuotes;
+        } else if (c === ',' && !inQuotes) {
+          row.push(current);
+          current = '';
+        } else if ((c === '\n' || c === '\r') && !inQuotes) {
+          if (c === '\r' && text[i + 1] === '\n') i++;
+          row.push(current);
+          result.push(row);
+          row = [];
+          current = '';
+        } else {
+          current += c;
+        }
+      }
+      if (current || row.length) {
+        row.push(current);
+        result.push(row);
+      }
+      return result.filter(r => r.some(cell => String(cell).trim() !== ''));
+    }
+
+    // Convert Arabic-Indic digits and thousand separators to normal number
+    function toNumber(val) {
+      if (val === null || val === undefined) return null;
+      let s = String(val).trim();
+      if (s === '') return null;
+      // Arabic-Indic digits ٠-٩ → 0-9
+      s = s.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+      // Remove thousand separators (Arabic ٬ and regular , and spaces)
+      s = s.replace(/[٬,\s]/g, '');
+      // Percent?
+      s = s.replace(/%/g, '');
+      const n = Number(s);
+      return isNaN(n) ? null : n;
+    }
+
+    async function fetchSheet(sheetName) {
+      const url = sheetCsvUrl(sheetName);
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status} — ${sheetName}`);
+      const text = await res.text();
+      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+        throw new Error(`الورقة "${sheetName}" غير متاحة (فعّل المشاركة العامة)`);
+      }
+      return parseCsv(text);
+    }
+
+    async function loadFromGoogleSheets() {
+      setStatus('جاري التحميل من Google Sheets...', 'loading');
+      showLoading(true);
+      try {
+        // --- الملخص (الرصيد السابق + قيمة الاشتراك إن وجدت) ---
+        try {
+          const sumRows = await fetchSheet(CONFIG.SHEET_SUMMARY);
+          sumRows.forEach(row => {
+            const label = (row[0] || '').trim();
+            const val = toNumber(row[1]);
+            if (label.includes('الرصيد السابق') && val !== null) data.prevBalance = val;
+            if (label.includes('قيمة الاشتراك') && val !== null) data.monthlyFee = val;
+          });
+        } catch (e) {
+          console.warn('الملخص:', e.message);
+        }
+
+        // --- الاشتراكات ---
+        const subsRows = await fetchSheet(CONFIG.SHEET_SUBS);
+        data.apartments = {};
+
+        // Detect monthly fee from first row if present (col index 3 often has 1000)
+        if (subsRows.length > 0) {
+          const fee = toNumber(subsRows[0][3]);
+          if (fee && fee > 0 && fee < 100000) data.monthlyFee = fee;
+        }
+
+        for (let i = 0; i < subsRows.length; i++) {
+          const row = subsRows[i];
+          const aptNum = toNumber(row[0]);
+          // Skip non-apartment rows (empty first cell, or totals, or headers)
+          if (aptNum === null || aptNum < 1 || aptNum > 999) continue;
+          // Skip if it looks like a percentage row
+          if (String(row[1] || '').includes('%')) continue;
+
+          const months = [];
+          for (let m = 1; m <= 12; m++) {
+            months.push(toNumber(row[m]));
+          }
+          data.apartments[aptNum] = months;
+        }
+
+        if (Object.keys(data.apartments).length === 0) {
+          throw new Error('ما لقيت حتى شقة في جدول الاشتراكات');
+        }
+
+        // --- المصاريف ---
+        const expRows = await fetchSheet(CONFIG.SHEET_EXPENSES);
+        data.expenses = [];
+        for (let i = 0; i < expRows.length; i++) {
+          const row = expRows[i];
+          const first = (row[0] || '').trim();
+          // Skip header and notes and total row
+          if (first === 'التاريخ' || first.startsWith('ملاحظة') || first === '') continue;
+          if ((row[2] || '').trim() === 'المجموع') continue;
+
+          const amount = toNumber(row[3]);
+          if (amount === null && !row[2]) continue;
+
+          data.expenses.push({
+            date: first,
+            type: (row[1] || '').trim() || 'أخرى',
+            desc: (row[2] || '').trim(),
+            amount: amount || 0,
+            link: (row[4] || '').trim()
+          });
+        }
+
+        setStatus('✅ تم التحديث · ' + new Date().toLocaleTimeString('ar-DZ') + ' · ' + Object.keys(data.apartments).length + ' شقة', 'ok');
+        renderAll();
+      } catch (err) {
+        console.error(err);
+        setStatus('❌ فشل التحميل: ' + err.message, 'error');
+        renderAll();
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function setStatus(msg, type) {
+      const el = document.getElementById('status-text');
+      const bar = document.getElementById('status-bar');
+      el.textContent = msg;
+      bar.className = 'border-b text-center py-1.5 text-xs ' + (
+        type === 'ok' ? 'bg-green-50 border-green-200 text-green-700' :
+        type === 'error' ? 'bg-red-50 border-red-200 text-red-700' :
+        'bg-slate-100 border-slate-200 text-slate-500'
+      );
+    }
+
+    function showLoading(show) {
+      const el = document.getElementById('loading-overlay');
+      if (show) { el.classList.remove('hidden'); el.style.opacity = '1'; }
+      else { el.style.opacity = '0'; setTimeout(() => el.classList.add('hidden'), 300); }
+    }
+
+    function refreshFromSheets() { loadFromGoogleSheets(); }
+
+    // Auth
     let isAdmin = false;
-
     function openLoginModal() {
       document.getElementById('login-modal').classList.remove('hidden');
       document.getElementById('login-modal').classList.add('flex');
@@ -404,129 +416,38 @@
       document.getElementById('login-error').classList.add('hidden');
       document.getElementById('login-password').focus();
     }
-
     function closeLoginModal() {
       document.getElementById('login-modal').classList.add('hidden');
       document.getElementById('login-modal').classList.remove('flex');
     }
-
     function tryLogin() {
-      const pwd = document.getElementById('login-password').value;
-      if (pwd === ADMIN_PASSWORD) {
+      if (document.getElementById('login-password').value === CONFIG.ADMIN_PASSWORD) {
         isAdmin = true;
         document.body.classList.add('is-admin');
         document.getElementById('btn-login').style.display = 'none';
         closeLoginModal();
-        renderAll();
-        // Session lasts until page refresh or logout
         sessionStorage.setItem('a2_admin', '1');
       } else {
         document.getElementById('login-error').classList.remove('hidden');
       }
     }
-
     function logout() {
       isAdmin = false;
       document.body.classList.remove('is-admin');
       document.getElementById('btn-login').style.display = '';
       sessionStorage.removeItem('a2_admin');
-      renderAll();
     }
-
-    // Restore session
     if (sessionStorage.getItem('a2_admin') === '1') {
       isAdmin = true;
       document.body.classList.add('is-admin');
       document.getElementById('btn-login').style.display = 'none';
     }
 
-    // ===================== STORAGE =====================
-    // المصدر الأساسي ديال البيانات هو الملف نفسه (البيانات المدمجة).
-    // localStorage غير اختياري لنفس المتصفح.
-    function loadData() {
-      const saved = localStorage.getItem('a2_gestion_data');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed && parsed.apartments) {
-            // نستخدم localStorage غير إذا المستخدم حبّ
-            // باش ما يغطيش على ملف محمّل جديد، نتحقق من توقيت الحفظ
-            const savedAt = localStorage.getItem('a2_gestion_data_at');
-            const fileStamp = localStorage.getItem('a2_file_stamp');
-            // إذا ما كانش stamp أو الحفظ أحدث، نستعمل localStorage
-            if (!fileStamp || (savedAt && savedAt > fileStamp)) {
-              data = parsed;
-            }
-          }
-        } catch(e) {}
-      }
-    }
-
-    function saveToBrowser() {
-      localStorage.setItem('a2_gestion_data', JSON.stringify(data));
-      localStorage.setItem('a2_gestion_data_at', Date.now().toString());
-      alert('✅ تم الحفظ في هذا المتصفح فقط.\n\n⚠️ باش التغييرات تظهر في أي متصفح أو جهاز آخر:\nاضغط على زر "تحميل الملف المحدّث" واستبدل الملف القديم.');
-    }
-
-    function clearBrowserCache() {
-      if (confirm('تمسح البيانات المحفوظة في هذا المتصفح؟\n(الملف نفسه ما يتأثرش)')) {
-        localStorage.removeItem('a2_gestion_data');
-        localStorage.removeItem('a2_gestion_data_at');
-        localStorage.removeItem('a2_file_stamp');
-        location.reload();
-      }
-    }
-
-    function downloadUpdatedFile() {
-      // نبني كتلة البيانات الجديدة
-      const dataJson = JSON.stringify(data, null, 2);
-      const newDataBlock = `// ===BEGIN_DATA===
-    let data = ${dataJson};
-    // ===END_DATA===`;
-
-      // نجيبو الكود المصدري من الصفحة الحالية
-      let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-
-      const beginMarker = '// ===BEGIN_DATA===';
-      const endMarker = '// ===END_DATA===';
-      const beginIdx = html.indexOf(beginMarker);
-      const endIdx = html.indexOf(endMarker);
-
-      if (beginIdx === -1 || endIdx === -1) {
-        alert('خطأ: ما قدرتش نلقا البيانات في الملف.');
-        return;
-      }
-
-      html = html.substring(0, beginIdx) + newDataBlock + html.substring(endIdx + endMarker.length);
-
-      // نمسح أي حالة دخول للمسؤول من الملف المحمّل
-      html = html.replace(/sessionStorage\.setItem\('a2_admin',\s*'1'\);/g, "/* cleared on export */");
-
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'index.html';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      // نحفظ أيضاً في المتصفح + نحدّث الـ stamp
-      const now = Date.now().toString();
-      localStorage.setItem('a2_gestion_data', JSON.stringify(data));
-      localStorage.setItem('a2_gestion_data_at', now);
-      localStorage.setItem('a2_file_stamp', now);
-
-      alert('✅ تم تحميل الملف المحدّث: index.html\n\n1. استبدل الملف القديم بهذا الملف الجديد\n2. افتحه في أي متصفح → راح تلقى كل التغييرات محفوظة');
-    }
-
-    // ===================== RENDER =====================
+    // Render
     function fmt(n) {
       if (n === null || n === undefined) return '—';
       return Number(n).toLocaleString('ar-DZ');
     }
-
     function cellClass(val) {
       if (val === null || val === undefined || val === '') return 'empty';
       if (val > 0) return 'paid';
@@ -539,46 +460,36 @@
       const monthTotals = Array(12).fill(0);
       const unpaidCount = Array(12).fill(0);
       const paidCountMonth = Array(12).fill(0);
-      const aptKeys = Object.keys(data.apartments).map(Number).sort((a,b)=>a-b);
-
+      const aptKeys = Object.keys(data.apartments).map(Number).sort((a, b) => a - b);
       aptKeys.forEach(num => {
-        const months = data.apartments[num];
+        const months = data.apartments[num] || Array(12).fill(null);
         let aptTotal = 0;
         months.forEach((v, i) => {
           if (v !== null && v !== undefined) {
             monthTotals[i] += v;
-            if (v > 0) {
-              paidCountMonth[i]++;
-              aptTotal += v;
-            } else {
-              unpaidCount[i]++;
-            }
+            if (v > 0) { paidCountMonth[i]++; aptTotal += v; }
+            else unpaidCount[i]++;
           }
         });
         totalSubs += aptTotal;
         if (aptTotal > 0) paidApts.push(num);
       });
-
       const totalExp = data.expenses.reduce((s, e) => s + (e.amount || 0), 0);
       const newBal = data.prevBalance + totalSubs - totalExp;
       const potential = aptKeys.length * 12 * data.monthlyFee;
       const rate = potential > 0 ? ((totalSubs / potential) * 100).toFixed(2) : 0;
-
       return { totalSubs, totalExp, newBal, paidApts, monthTotals, unpaidCount, paidCountMonth, aptKeys, potential, rate };
     }
 
     function renderSummary() {
       const t = calcTotals();
       document.getElementById('prev-balance').textContent = fmt(data.prevBalance);
-      document.getElementById('edit-prev-balance').value = data.prevBalance;
       document.getElementById('total-subs').textContent = fmt(t.totalSubs);
       document.getElementById('total-exp').textContent = fmt(t.totalExp);
       document.getElementById('new-balance').textContent = fmt(t.newBal);
       document.getElementById('apt-count').textContent = t.aptKeys.length;
       document.getElementById('paid-count').textContent = t.paidApts.length;
-      document.getElementById('paid-list').textContent = t.paidApts.length
-        ? t.paidApts.map(n => 'شقة ' + n).join(' و ')
-        : 'لا أحد بعد';
+      document.getElementById('paid-list').textContent = t.paidApts.length ? t.paidApts.map(n => 'شقة ' + n).join(' و ') : 'لا أحد بعد';
       document.getElementById('collection-rate').textContent = t.rate + '%';
       document.getElementById('collection-detail').textContent = fmt(t.totalSubs) + ' / ' + fmt(t.potential) + ' دج محتملة';
       document.getElementById('monthly-fee-display').textContent = fmt(data.monthlyFee);
@@ -588,51 +499,38 @@
       const t = calcTotals();
       const tbody = document.getElementById('subs-body');
       tbody.innerHTML = '';
-
       t.aptKeys.forEach((num, idx) => {
-        const months = data.apartments[num];
+        const months = data.apartments[num] || Array(12).fill(null);
         const total = months.reduce((s, v) => s + (v || 0), 0);
         const tr = document.createElement('tr');
         tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
-
         let cells = `<td class="px-3 py-2 font-bold sticky right-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} border-l-2 border-primary-200">${num}</td>`;
-
-        months.forEach((v, mi) => {
-          if (isAdmin) {
-            const display = (v === null || v === undefined) ? '' : v;
-            cells += `<td class="px-1 py-1"><input type="number" class="edit-input" value="${display}" 
-              onchange="updatePayment(${num}, ${mi}, this.value)" min="0" step="100"></td>`;
-          } else {
-            cells += `<td class="px-2 py-2 ${cellClass(v)}">${v === null || v === undefined ? '—' : fmt(v)}</td>`;
-          }
+        months.forEach(v => {
+          cells += `<td class="px-2 py-2 ${cellClass(v)}">${v === null || v === undefined ? '—' : fmt(v)}</td>`;
         });
-
         cells += `<td class="px-3 py-2 font-bold ${total > 0 ? 'text-success-700 bg-success-50' : 'text-slate-400'}">${fmt(total)}</td>`;
         tr.innerHTML = cells;
         tbody.appendChild(tr);
       });
-
-      // Footer
-      const footer = document.getElementById('subs-footer');
-      let fHtml = `<tr>
-        <td class="px-3 py-3 sticky right-0 bg-slate-100">المجموع الشهري</td>
-        ${t.monthTotals.map(v => `<td class="px-2 py-3 ${v>0?'text-success-700':''}">${fmt(v)}</td>`).join('')}
-        <td class="px-3 py-3 bg-primary-100 text-primary-800">${fmt(t.totalSubs)}</td>
-      </tr>
-      <tr class="bg-warning-50">
-        <td class="px-3 py-2 sticky right-0 bg-warning-50 text-sm">عدد اللي ما يخلّصوش</td>
-        ${t.unpaidCount.map(v => `<td class="px-2 py-2 text-sm ${v>0?'text-danger-600':''}">${v}</td>`).join('')}
-        <td></td>
-      </tr>
-      <tr class="bg-primary-50">
-        <td class="px-3 py-2 sticky right-0 bg-primary-50 text-sm">نسبة الدفع %</td>
-        ${t.paidCountMonth.map(v => {
-          const pct = t.aptKeys.length ? ((v / t.aptKeys.length) * 100).toFixed(1) : 0;
-          return `<td class="px-2 py-2 text-sm">${pct}%</td>`;
-        }).join('')}
-        <td></td>
-      </tr>`;
-      footer.innerHTML = fHtml;
+      document.getElementById('subs-footer').innerHTML = `
+        <tr>
+          <td class="px-3 py-3 sticky right-0 bg-slate-100">المجموع الشهري</td>
+          ${t.monthTotals.map(v => `<td class="px-2 py-3 ${v > 0 ? 'text-success-700' : ''}">${fmt(v)}</td>`).join('')}
+          <td class="px-3 py-3 bg-primary-100 text-primary-800">${fmt(t.totalSubs)}</td>
+        </tr>
+        <tr class="bg-warning-50">
+          <td class="px-3 py-2 sticky right-0 bg-warning-50 text-sm">عدد اللي ما يخلّصوش</td>
+          ${t.unpaidCount.map(v => `<td class="px-2 py-2 text-sm ${v > 0 ? 'text-danger-600' : ''}">${v}</td>`).join('')}
+          <td></td>
+        </tr>
+        <tr class="bg-primary-50">
+          <td class="px-3 py-2 sticky right-0 bg-primary-50 text-sm">نسبة الدفع %</td>
+          ${t.paidCountMonth.map(v => {
+            const pct = t.aptKeys.length ? ((v / t.aptKeys.length) * 100).toFixed(1) : 0;
+            return `<td class="px-2 py-2 text-sm">${pct}%</td>`;
+          }).join('')}
+          <td></td>
+        </tr>`;
     }
 
     function renderExpenses() {
@@ -640,8 +538,7 @@
       tbody.innerHTML = '';
       const total = data.expenses.reduce((s, e) => s + (e.amount || 0), 0);
       document.getElementById('exp-total').textContent = fmt(total);
-
-      data.expenses.forEach((exp, idx) => {
+      data.expenses.forEach(exp => {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 border-b border-slate-100';
         tr.innerHTML = `
@@ -650,80 +547,14 @@
           <td class="px-4 py-4">${exp.desc}</td>
           <td class="px-4 py-4 text-center font-bold text-danger-600">${fmt(exp.amount)}</td>
           <td class="px-4 py-4 text-center">
-            ${exp.link ? `<a href="${exp.link}" target="_blank" class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-800 font-medium text-xs bg-primary-50 px-3 py-1.5 rounded-lg transition">عرض الفاتورة</a>` : '—'}
-          </td>
-          <td class="px-4 py-4 text-center admin-only">
-            <button onclick="deleteExpense(${idx})" class="text-danger-500 hover:text-danger-700 text-xs font-bold bg-danger-50 px-2 py-1 rounded">حذف</button>
-          </td>
-        `;
+            ${exp.link ? `<a href="${exp.link}" target="_blank" class="text-primary-600 hover:underline text-xs font-medium bg-primary-50 px-3 py-1.5 rounded-lg">عرض الفاتورة</a>` : '—'}
+          </td>`;
         tbody.appendChild(tr);
       });
     }
 
-    function renderAll() {
-      renderSummary();
-      renderSubs();
-      renderExpenses();
-    }
+    function renderAll() { renderSummary(); renderSubs(); renderExpenses(); }
 
-    // ===================== EDIT ACTIONS =====================
-    function updatePayment(apt, month, val) {
-      const v = val === '' ? null : Number(val);
-      data.apartments[apt][month] = isNaN(v) ? null : v;
-      renderAll();
-    }
-
-    function updatePrevBalance(val) {
-      data.prevBalance = Number(val) || 0;
-      renderSummary();
-    }
-
-    function setMonthlyFee() {
-      const v = prompt('قيمة الاشتراك الشهري الجديد (دج):', data.monthlyFee);
-      if (v !== null && !isNaN(v) && v > 0) {
-        data.monthlyFee = Number(v);
-        renderAll();
-      }
-    }
-
-    function openAddExpense() {
-      document.getElementById('expense-modal').classList.remove('hidden');
-      document.getElementById('expense-modal').classList.add('flex');
-      document.getElementById('exp-date').value = new Date().toISOString().slice(0,10);
-      document.getElementById('exp-desc').value = '';
-      document.getElementById('exp-amount').value = '';
-      document.getElementById('exp-link').value = '';
-    }
-
-    function closeExpenseModal() {
-      document.getElementById('expense-modal').classList.add('hidden');
-      document.getElementById('expense-modal').classList.remove('flex');
-    }
-
-    function addExpense() {
-      const date = document.getElementById('exp-date').value;
-      const type = document.getElementById('exp-type').value;
-      const desc = document.getElementById('exp-desc').value.trim();
-      const amount = Number(document.getElementById('exp-amount').value);
-      const link = document.getElementById('exp-link').value.trim();
-
-      if (!date || !desc || !amount) {
-        alert('رجاءً عبّي التاريخ والوصف والمبلغ');
-        return;
-      }
-      data.expenses.push({ date, type, desc, amount, link: link || '' });
-      closeExpenseModal();
-      renderAll();
-    }
-
-    function deleteExpense(idx) {
-      if (confirm('متأكد باغي تحذف هذا المصروف؟')) {
-        data.expenses.splice(idx, 1);
-        renderAll();
-      }
-    }
-
-    // ===================== TABS =====================
     function showTab(name) {
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -731,9 +562,8 @@
       document.getElementById('tab-' + name).classList.add('active');
     }
 
-    // ===================== INIT =====================
-    loadData();
-    renderAll();
+    // Start
+    loadFromGoogleSheets();
   </script>
 </body>
 </html>
