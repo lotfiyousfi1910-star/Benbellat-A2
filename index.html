@@ -73,9 +73,11 @@
   </header>
 
   <!-- Admin bar (visible only when logged in) -->
-  <div id="admin-bar" class="admin-only bg-amber-500 text-white text-center py-2 text-sm font-semibold">
-    🔓 وضع المسؤول مفعّل — يمكنك التعديل والإضافة والحذف
-    <button onclick="saveAllData()" class="mr-4 bg-white text-amber-700 px-3 py-0.5 rounded font-bold hover:bg-amber-50">💾 حفظ التغييرات</button>
+  <div id="admin-bar" class="admin-only bg-amber-500 text-white text-center py-2 text-sm font-semibold flex flex-wrap items-center justify-center gap-2 px-2">
+    <span>🔓 وضع المسؤول مفعّل</span>
+    <button onclick="saveToBrowser()" class="bg-white text-amber-700 px-3 py-1 rounded font-bold hover:bg-amber-50 text-xs">💾 حفظ هنا</button>
+    <button onclick="downloadUpdatedFile()" class="bg-green-700 text-white px-3 py-1 rounded font-bold hover:bg-green-800 text-xs">⬇️ تحميل الملف المحدّث</button>
+    <button onclick="clearBrowserCache()" class="bg-red-700 text-white px-3 py-1 rounded font-bold hover:bg-red-800 text-xs">🗑️ مسح ذاكرة المتصفح</button>
   </div>
 
   <!-- Navigation Tabs -->
@@ -342,22 +344,55 @@
     const ADMIN_PASSWORD = "a2admin2026";
 
     // ===================== DATA =====================
+    // ===BEGIN_DATA===
     let data = {
-      monthlyFee: 1000,
-      prevBalance: 0,
-      apartments: {},
-      expenses: [
-        { date: "2026-01-15", type: "الكهرباء", desc: "فاتورة كهرباء الأجزاء المشتركة - جانفي", amount: 9000, link: "https://drive.google.com/..." }
+      "monthlyFee": 1000,
+      "prevBalance": 0,
+      "apartments": {
+        "53": [1000,1000,1000,1000,1000,1000,1000,0,null,null,null,null],
+        "54": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "55": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "56": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "57": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "58": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "59": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "60": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "61": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "62": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "63": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "64": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "65": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "66": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "67": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "68": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "69": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "70": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "71": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "72": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "73": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "74": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "75": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "76": [1000,1000,null,null,null,null,null,null,null,null,null,null],
+        "77": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "78": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "79": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "80": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "81": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "82": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "83": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "84": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "85": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "86": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "87": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "88": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "89": [null,null,null,null,null,null,null,null,null,null,null,null],
+        "90": [null,null,null,null,null,null,null,null,null,null,null,null]
+      },
+      "expenses": [
+        { "date": "2026-01-15", "type": "الكهرباء", "desc": "فاتورة كهرباء الأجزاء المشتركة - جانفي", "amount": 9000, "link": "https://drive.google.com/..." }
       ]
     };
-
-    // Initialize apartments 53-90
-    for (let i = 53; i <= 90; i++) {
-      data.apartments[i] = Array(12).fill(null);
-    }
-    // Initial data from Excel
-    data.apartments[53] = [1000,1000,1000,1000,1000,1000,1000,0, null,null,null,null];
-    data.apartments[76] = [1000,1000, null,null,null,null,null,null,null,null,null,null];
+    // ===END_DATA===
 
     // ===================== AUTH =====================
     let isAdmin = false;
@@ -406,18 +441,84 @@
     }
 
     // ===================== STORAGE =====================
+    // المصدر الأساسي ديال البيانات هو الملف نفسه (البيانات المدمجة).
+    // localStorage غير اختياري لنفس المتصفح.
     function loadData() {
       const saved = localStorage.getItem('a2_gestion_data');
       if (saved) {
         try {
-          data = JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.apartments) {
+            // نستخدم localStorage غير إذا المستخدم حبّ
+            // باش ما يغطيش على ملف محمّل جديد، نتحقق من توقيت الحفظ
+            const savedAt = localStorage.getItem('a2_gestion_data_at');
+            const fileStamp = localStorage.getItem('a2_file_stamp');
+            // إذا ما كانش stamp أو الحفظ أحدث، نستعمل localStorage
+            if (!fileStamp || (savedAt && savedAt > fileStamp)) {
+              data = parsed;
+            }
+          }
         } catch(e) {}
       }
     }
 
-    function saveAllData() {
+    function saveToBrowser() {
       localStorage.setItem('a2_gestion_data', JSON.stringify(data));
-      alert('✅ تم حفظ التغييرات بنجاح!\nالبيانات محفوظة في هذا المتصفح.');
+      localStorage.setItem('a2_gestion_data_at', Date.now().toString());
+      alert('✅ تم الحفظ في هذا المتصفح فقط.\n\n⚠️ باش التغييرات تظهر في أي متصفح أو جهاز آخر:\nاضغط على زر "تحميل الملف المحدّث" واستبدل الملف القديم.');
+    }
+
+    function clearBrowserCache() {
+      if (confirm('تمسح البيانات المحفوظة في هذا المتصفح؟\n(الملف نفسه ما يتأثرش)')) {
+        localStorage.removeItem('a2_gestion_data');
+        localStorage.removeItem('a2_gestion_data_at');
+        localStorage.removeItem('a2_file_stamp');
+        location.reload();
+      }
+    }
+
+    function downloadUpdatedFile() {
+      // نبني كتلة البيانات الجديدة
+      const dataJson = JSON.stringify(data, null, 2);
+      const newDataBlock = `// ===BEGIN_DATA===
+    let data = ${dataJson};
+    // ===END_DATA===`;
+
+      // نجيبو الكود المصدري من الصفحة الحالية
+      let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+      const beginMarker = '// ===BEGIN_DATA===';
+      const endMarker = '// ===END_DATA===';
+      const beginIdx = html.indexOf(beginMarker);
+      const endIdx = html.indexOf(endMarker);
+
+      if (beginIdx === -1 || endIdx === -1) {
+        alert('خطأ: ما قدرتش نلقا البيانات في الملف.');
+        return;
+      }
+
+      html = html.substring(0, beginIdx) + newDataBlock + html.substring(endIdx + endMarker.length);
+
+      // نمسح أي حالة دخول للمسؤول من الملف المحمّل
+      html = html.replace(/sessionStorage\.setItem\('a2_admin',\s*'1'\);/g, "/* cleared on export */");
+
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'index.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // نحفظ أيضاً في المتصفح + نحدّث الـ stamp
+      const now = Date.now().toString();
+      localStorage.setItem('a2_gestion_data', JSON.stringify(data));
+      localStorage.setItem('a2_gestion_data_at', now);
+      localStorage.setItem('a2_file_stamp', now);
+
+      alert('✅ تم تحميل الملف المحدّث: index.html\n\n1. استبدل الملف القديم بهذا الملف الجديد\n2. افتحه في أي متصفح → راح تلقى كل التغييرات محفوظة');
     }
 
     // ===================== RENDER =====================
